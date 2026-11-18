@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>포켓몬 쓰나미 구조대</title>
+<style>
+  :root { --yellow:#ffcb05; --blue:#2a75bb; --dark:#1d2b53; --red:#e3350d; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: "Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    background: #0e3b66; color: var(--dark); user-select: none; -webkit-user-select: none;
+    touch-action: none;
+  }
+  button { font-family: inherit; }
+  .btn {
+    border: none; cursor: pointer; font-weight: 800; font-size: 1rem; padding: 12px 22px;
+    border-radius: 999px; background: var(--yellow); color: var(--dark); box-shadow: 0 4px 0 #c79a00;
+  }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #c79a00; }
+  .btn.blue { background: var(--blue); color: #fff; box-shadow: 0 4px 0 #1a4f80; }
+  .btn.red { background: var(--red); color: #fff; box-shadow: 0 4px 0 #8f2008; }
+  .btn.small { padding: 7px 14px; font-size: .85rem; }
+  .btn:disabled { opacity: .45; cursor: default; }
+
+  /* ---------- 로그인 ---------- */
+  #login {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px;
+    background: linear-gradient(180deg, #7ec8ff 0%, #3b8ed8 55%, #0e3b66 100%); z-index: 50;
+  }
+  .login-box {
+    background: #fff; border: 5px solid var(--dark); border-radius: 26px; padding: 28px 24px;
+    width: 100%; max-width: 380px; text-align: center;
+  }
+  .logo { font-size: 2rem; font-weight: 900; color: var(--yellow); -webkit-text-stroke: 2px var(--blue);
+    paint-order: stroke fill; text-shadow: 0 4px 0 var(--dark); line-height: 1.2; margin-bottom: 6px; }
+  .login-box p.sub { color: #555; font-size: .9rem; margin-bottom: 18px; }
+  .login-box input {
+    width: 100%; font-size: 1.05rem; padding: 12px 14px; border: 3px solid #ccd; border-radius: 12px;
+    margin-bottom: 10px; font-family: inherit; outline: none;
+  }
+  .login-box input:focus { border-color: var(--blue); }
+  .login-box .row { display: flex; gap: 10px; margin-top: 6px; }
+  .login-box .row .btn { flex: 1; }
+  #loginErr { color: var(--red); font-weight: 700; min-height: 1.4em; margin-top: 10px; font-size: .9rem; }
+  .how { text-align: left; font-size: .82rem; color: #444; background: #f3f7ff; border-radius: 12px; padding: 10px 12px; margin-top: 14px; line-height: 1.6; }
+
+  /* ---------- 게임 ---------- */
+  #game { display: none; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .hud-top {
+    position: fixed; top: 10px; left: 10px; right: 10px; display: flex; gap: 8px; align-items: flex-start;
+    pointer-events: none; z-index: 5;
+  }
+  .hud-top > * { pointer-events: auto; }
+  .card { background: rgba(255,255,255,.95); border: 3px solid var(--dark); border-radius: 14px; padding: 6px 12px; font-weight: 800; }
+  #myInfo { font-size: .9rem; display: flex; align-items: center; gap: 8px; }
+  #myInfo img { width: 34px; height: 34px; object-fit: contain; }
+  #waveInfo { margin: 0 auto; text-align: center; font-size: .95rem; min-width: 200px; }
+  #waveInfo.warn { background: var(--red); color: #fff; animation: blink .5s infinite alternate; }
+  #waveInfo.wave { background: #1565c0; color: #fff; }
+  @keyframes blink { to { transform: scale(1.06); } }
+  .top-btns { display: flex; gap: 6px; }
+
+  #toasts { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column;
+    gap: 6px; align-items: center; z-index: 30; pointer-events: none; width: 92%; max-width: 480px; }
+  .toast { background: rgba(29,43,83,.92); color: #fff; padding: 8px 14px; border-radius: 99px; font-weight: 700;
+    font-size: .9rem; animation: tin .25s; text-align: center; }
+  @keyframes tin { from { opacity: 0; transform: translateY(-8px); } }
+
+  /* 옆 패널 */
+  #panel {
+    position: fixed; top: 64px; right: 10px; bottom: 10px; width: 320px; max-width: calc(100% - 20px);
+    background: #fff; border: 4px solid var(--dark); border-radius: 18px; z-index: 20; display: none;
+    flex-direction: column; overflow: hidden;
+  }
+  #panel.open { display: flex; }
+  .panel-head { display: flex; align-items: center; padding: 10px 12px; border-bottom: 3px solid #eee; gap: 8px; }
+  .panel-head h3 { flex: 1; font-size: 1.1rem; }
+  .panel-body { overflow-y: auto; padding: 10px; flex: 1; }
+  .poke-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 8px; }
+  .pcard { border: 3px solid #dde; border-radius: 12px; padding: 4px; text-align: center; font-size: .78rem; font-weight: 800; background: #fafcff; }
+  .pcard img { width: 100%; aspect-ratio: 1; object-fit: contain; }
+  .pcard .cp { color: var(--red); font-size: .72rem; }
+  .pcard.pick { cursor: pointer; }
+  .pcard.pick:hover { border-color: var(--blue); background: #eaf3ff; }
+  .player-row { display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 12px; background: #f4f6fb; margin-bottom: 6px; font-weight: 700; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #333; flex-shrink: 0; }
+  .player-row .st { font-size: .75rem; color: #777; font-weight: 600; }
+  .player-row .grow { flex: 1; }
+  .empty { color: #888; text-align: center; padding: 20px 6px; font-size: .9rem; line-height: 1.6; }
+
+  /* 조작 버튼 (휴대폰) */
+  #pad { position: fixed; left: 14px; bottom: 14px; width: 150px; height: 150px; z-index: 6; display: none; }
+  #pad button { position: absolute; width: 50px; height: 50px; border-radius: 12px; border: 3px solid var(--dark);
+    background: rgba(255,255,255,.85); font-size: 1.3rem; font-weight: 900; }
+  #pad .u { left: 50px; top: 0; } #pad .d { left: 50px; bottom: 0; } #pad .l { left: 0; top: 50px; } #pad .r { right: 0; top: 50px; }
+  #eBtn { position: fixed; right: 18px; bottom: 26px; width: 84px; height: 84px; border-radius: 50%;
+    border: 4px solid var(--dark); background: var(--yellow); font-size: 1.6rem; font-weight: 900; z-index: 6; box-shadow: 0 5px 0 #c79a00; }
+  #eBtn small { display: block; font-size: .65rem; }
+  .touch #pad { display: block; }
+  .help { position: fixed; left: 12px; bottom: 12px; color: #fff; font-size: .8rem; font-weight: 700;
+    background: rgba(0,0,0,.4); padding: 6px 10px; border-radius: 10px; z-index: 4; }
+  .touch .help { display: none; }
+
+  /* ---------- 팝업 ---------- */
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center;
+    justify-content: center; z-index: 40; padding: 14px; }
+  .modal-bg.open { display: flex; }
+  .modal { background: #fff; border: 5px solid var(--dark); border-radius: 22px; padding: 18px; width: 100%;
+    max-width: 460px; max-height: 92vh; overflow-y: auto; text-align: center; animation: pin .25s; }
+  @keyframes pin { from { transform: scale(.7); opacity: 0; } }
+  .modal h3 { font-size: 1.35rem; margin-bottom: 8px; }
+  .modal p { margin: 6px 0; }
+  .modal .poke-grid { margin: 12px 0; }
+  .modal .big { width: 130px; height: 130px; object-fit: contain; }
+
+  /* 배틀 화면 */
+  .battle-field { background: linear-gradient(#bfe6ff, #e9f7d8 55%, #b6e08f 55%); border-radius: 16px;
+    border: 3px solid var(--dark); padding: 10px; margin-bottom: 10px; position: relative; }
+  .fighter { display: flex; align-items: center; gap: 10px; }
+  .fighter.foe { flex-direction: row-reverse; text-align: right; }
+  .fighter img { width: 100px; height: 100px; object-fit: contain; transition: transform .2s; }
+  .fighter.foe img { transform: scaleX(-1); }
+  .fighter .info { flex: 1; background: rgba(255,255,255,.9); border-radius: 12px; padding: 6px 10px; border: 2px solid var(--dark); }
+  .fighter .nm { font-weight: 900; }
+  .fighter .owner { font-size: .75rem; color: #666; }
+  .hpbar { height: 12px; background: #ddd; border-radius: 99px; overflow: hidden; margin-top: 4px; border: 2px solid var(--dark); }
+  .hpbar div { height: 100%; background: #4cd964; transition: width .5s; }
+  .hptext { font-size: .75rem; font-weight: 700; }
+  .hit-anim { animation: hitA .4s; }
+  @keyframes hitA { 25% { transform: translateX(-10px); filter: brightness(3); } 75% { transform: translateX(10px); } }
+  .vs { font-weight: 900; font-size: 1.4rem; color: var(--red); margin: 2px 0; }
+  #bLog { background: #1d2b53; color: #fff; border-radius: 12px; padding: 8px 10px; font-size: .85rem; min-height: 64px;
+    text-align: left; line-height: 1.5; margin-bottom: 10px; }
+  .moves { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .moves .btn { padding: 10px 4px; font-size: .85rem; border-radius: 14px; }
+  .moves .btn small { display: block; font-weight: 600; font-size: .68rem; margin-top: 2px; }
+  #bTimer { font-weight: 800; margin-top: 8px; font-size: .9rem; color: #555; }
+</style>
+</head>
+<body>
+
+<!-- ================= 로그인 화면 ================= -->
+<div id="login">
+  <div class="login-box">
+    <div class="logo">🌊 포켓몬<br>쓰나미 구조대</div>
+    <p class="sub">쓰나미가 오기 전에 포켓몬을 구하자!</p>
+    <input id="nameIn" placeholder="트레이너 이름 (2~12자)" maxlength="12" autocomplete="username">
+    <input id="pwIn" type="password" placeholder="비밀번호 (4자 이상)" autocomplete="current-password">
+    <div class="row">
+      <button class="btn" onclick="auth('login')">로그인</button>
+      <button class="btn blue" onclick="auth('register')">회원가입</button>
+    </div>
+    <div id="loginErr"></div>
+    <div class="how">
+      🎮 <b>이동</b>: 방향키 / WASD<br>
+      🙌 <b>포켓몬 구하기</b>: 포켓몬 옆에서 <b>E</b> 키<br>
+      🏠 <b>안전구역(왼쪽)</b>으로 돌아오면 창고에 보관!<br>
+      🌊 쓰나미가 오면 안전구역이나 <b>⛰️언덕</b>으로 피하기<br>
+      ⚔️ 다른 트레이너와 배틀해서 이기면 상대 포켓몬을 데려와요
+    </div>
+  </div>
+</div>
+
+<!-- ================= 게임 화면 ================= -->
+<div id="game">
+  <canvas id="cv"></canvas>
+  <div class="hud-top">
+    <div class="card" id="myInfo"></div>
+    <div class="card" id="waveInfo">🌊</div>
+    <div class="top-btns">
+      <button class="btn small" onclick="openPanel('storage')" id="storageBtn">📦 창고</button>
+      <button class="btn small blue" onclick="openPanel('players')" id="playersBtn">👥 트레이너</button>
+    </div>
+  </div>
+  <div id="toasts"></div>
+  <div id="panel">
+    <div class="panel-head"><h3 id="panelTitle"></h3><button class="btn small red" onclick="closePanel()">✕</button></div>
+    <div class="panel-body" id="panelBody"></div>
+  </div>
+  <div id="pad">
+    <button class="u" data-k="up">▲</button><button class="d" data-k="down">▼</button>
+    <button class="l" data-k="left">◀</button><button class="r" data-k="right">▶</button>
+  </div>
+  <button id="eBtn">E<small>구하기</small></button>
+  <div class="help">이동: 방향키/WASD · 포켓몬 구하기: E</div>
+</div>
+
+<div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+/* =========================================================
+   공통 도구
+   ========================================================= */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const imgUrl = no => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${no}.png`;
+const imgCache = {};
+function pokeImg(no) {
+  if (!imgCache[no]) { const im = new Image(); im.src = imgUrl(no); imgCache[no] = im; }
+  return imgCache[no];
+}
+function toast(msg) {
+  const t = document.createElement("div");
+  t.className = "toast"; t.textContent = msg;
+  $("toasts").appendChild(t);
+  while ($("toasts").children.length > 4) $("toasts").firstChild.remove();
+  setTimeout(() => t.remove(), 3500);
+}
+function store(key, val) { try { val === undefined ? localStorage.removeItem(key) : localStorage.setItem(key, val); } catch (e) {} }
+function load(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+
+/* =========================================================
+   1. 로그인
+   ========================================================= */
+async function auth(kind) {
+  const name = $("nameIn").value.trim(), password = $("pwIn").value;
+  $("loginErr").textContent = "";
+  try {
+    const r = await fetch("/api/" + kind, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, password }) });
+    const d = await r.json();
+    if (!d.ok) return ($("loginErr").textContent = d.error);
+    store("pokeToken", d.token); store("pokeName", d.name);
+    connect(d.token);
+  } catch (e) { $("loginErr").textContent = "서버에 연결할 수 없어요."; }
+}
+$("pwIn").addEventListener("keydown", e => { if (e.key === "Enter") auth("login"); });
+$("nameIn").value = load("pokeName") || "";
+
+/* =========================================================
+   2. 서버 연결
+   ========================================================= */
+let socket = null;
+let W = null;            // 월드 정보 (크기, 구역, 언덕)
+let me = null;           // 내 캐릭터
+let state = { players: [], wild: [], wave: { phase: "calm", t: 0, x: 99999, width: 0 } };
+let shown = {};          // 다른 플레이어 부드럽게 보이기용
+let myStorage = { list: [], wins: 0, losses: 0 };
+let inBattle = false;
+
+function connect(token) {
+  if (socket) socket.disconnect();
+  socket = io({ auth: { token } });
+  socket.on("connect_error", err => {
+    socket.disconnect();
+    $("login").style.display = "flex"; $("game").style.display = "none";
+    if (err.message === "login") $("loginErr").textContent = "다시 로그인해주세요.";
+    else $("loginErr").textContent = "서버 연결 실패: " + err.message;
+  });
+  socket.on("init", d => {
+    W = d; me = { ...d.me, carry: null };
+    $("login").style.display = "none"; $("game").style.display = "block";
+    resize();
+  });
+  socket.on("state", s => {
+    state = s;
+    const mine = s.players.find(p => p.id === me?.id);
+    if (mine) me.carry = mine.carry;
+    updateMyInfo();
+    updateWaveInfo();
+    if (panelMode === "players") renderPanel();
+  });
+  socket.on("storage", s => { myStorage = s; $("storageBtn").textContent = `📦 창고 (${s.list.length})`; if (panelMode === "storage") renderPanel(); });
+  socket.on("toast", toast);
+  socket.on("hit", d => {
+    me.x = d.x; me.y = d.y;
+    flash = 1;
+    toast(d.lost ? `🌊 쓰나미에 휩쓸렸어요! ${d.lost}을(를) 놓쳤어요...` : "🌊 쓰나미에 휩쓸렸어요! 안전구역으로 돌아왔어요.");
+  });
+  socket.on("kicked", msg => { alert(msg); location.reload(); });
+  socket.on("challenged", onChallenged);
+  socket.on("battleStart", onBattleStart);
+  socket.on("battleTurn", onBattleTurn);
+  socket.on("battleEnd", onBattleEnd);
+}
+if (load("pokeToken")) connect(load("pokeToken"));
+
+/* =========================================================
+   3. 조작 (키보드 + 휴대폰 버튼)
+   ========================================================= */
+const keys = {};
+const KEYMAP = { ArrowUp:"up", KeyW:"up", ArrowDown:"down", KeyS:"down", ArrowLeft:"left", KeyA:"left", ArrowRight:"right", KeyD:"right" };
+addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (KEYMAP[e.code]) { keys[KEYMAP[e.code]] = true; e.preventDefault(); }
+  if (e.code === "KeyE" && !e.repeat) pickup();
+});
+addEventListener("keyup", e => { if (KEYMAP[e.code]) keys[KEYMAP[e.code]] = false; });
+addEventListener("blur", () => Object.keys(keys).forEach(k => keys[k] = false));
+document.querySelectorAll("#pad button").forEach(b => {
+  const k = b.dataset.k;
+  b.addEventListener("pointerdown", e => { keys[k] = true; e.preventDefault(); });
+  ["pointerup", "pointerleave", "pointercancel"].forEach(ev => b.addEventListener(ev, () => keys[k] = false));
+});
+$("eBtn").addEventListener("pointerdown", e => { e.preventDefault(); pickup(); });
+if ("ontouchstart" in window) document.body.classList.add("touch");
+
+function pickup() {
+  if (!socket || !me || inBattle) return;
+  if (me.carry) return toast("이미 포켓몬을 데리고 있어요! 안전구역으로 가요.");
+  socket.emit("pickup");
+}
+
+/* =========================================================
+   4. 화면 그리기
+   ========================================================= */
+const cv = $("cv"), ctx = cv.getContext("2d");
+let scale = 1, dpr = 1, flash = 0;
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  cv.width = innerWidth * dpr; cv.height = innerHeight * dpr;
+  scale = Math.max(0.5, Math.min(1, innerWidth / 1100, innerHeight / 760));
+}
+addEventListener("resize", resize);
+
+const ZONE_COLORS = ["#f6e7b8", "#e9d49c", "#dcc7a0", "#cdb98d", "#c7b3e0"];
+let last = performance.now(), sendAcc = 0;
+
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (me && W) {
+    update(dt);
+    draw(now / 1000);
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+function update(dt) {
+  let vx = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+  let vy = (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
+  if (inBattle || modalOpen) vx = vy = 0;
+  if (vx || vy) {
+    const len = Math.hypot(vx, vy);
+    const sp = W.speed * (me.carry ? W.carrySpeed : 1);
+    me.x = Math.max(20, Math.min(W.world.w - 20, me.x + vx / len * sp * dt));
+    me.y = Math.max(20, Math.min(W.world.h - 20, me.y + vy / len * sp * dt));
+  }
+  sendAcc += dt;
+  if (sendAcc > 0.066) { sendAcc = 0; socket.emit("move", { x: me.x, y: me.y }); }
+  // 다른 플레이어 위치를 부드럽게
+  for (const p of state.players) {
+    const s = shown[p.id] || (shown[p.id] = { x: p.x, y: p.y });
+    s.x += (p.x - s.x) * Math.min(1, dt * 12);
+    s.y += (p.y - s.y) * Math.min(1, dt * 12);
+  }
+  flash = Math.max(0, flash - dt * 1.5);
+}
+
+function nearestWild() {
+  let best = null, bd = W.pickupRange;
+  for (const w of state.wild) {
+    const d = Math.hypot(w.x - me.x, w.y - me.y);
+    if (d < bd) { bd = d; best = w; }
+  }
+  return best;
+}
+
+function draw(t) {
+  const vw = innerWidth / scale, vh = innerHeight / scale;
+  const camX = Math.max(0, Math.min(W.world.w - vw, me.x - vw / 2));
+  const camY = Math.max(0, Math.min(W.world.h - vh, me.y - vh / 2));
+  const ww = W.world.w, wh = W.world.h, safeX = W.world.safeX;
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = "#0e3b66"; ctx.fillRect(0, 0, innerWidth, innerHeight);
+  ctx.setTransform(dpr * scale, 0, 0, dpr * scale, -camX * dpr * scale, -camY * dpr * scale);
+
+  // 안전구역
+  ctx.fillStyle = "#86cf7c"; ctx.fillRect(0, 0, safeX, wh);
+  for (let y = 40; y < wh; y += 120) for (let x = 40; x < safeX; x += 120) {
+    ctx.fillStyle = "#79c06f"; ctx.beginPath(); ctx.arc(x + (y % 240 ? 30 : 0), y, 18, 0, 7); ctx.fill();
+  }
+  // 위험 구역들
+  W.zones.forEach((z, i) => {
+    ctx.fillStyle = ZONE_COLORS[i]; ctx.fillRect(z.from, 0, z.to - z.from, wh);
+    ctx.fillStyle = "rgba(0,0,0,.06)";
+    for (let y = 30; y < wh; y += 90) for (let x = z.from + 30; x < z.to; x += 110) { ctx.fillRect(x + (y % 180 ? 40 : 0), y, 22, 4); }
+    ctx.strokeStyle = "rgba(0,0,0,.15)"; ctx.setLineDash([12, 12]); ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(z.to, 0); ctx.lineTo(z.to, wh); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = "rgba(29,43,83,.75)"; ctx.font = "bold 30px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(z.name, (z.from + z.to) / 2, 50);
+    ctx.font = "bold 18px sans-serif"; ctx.fillText("★".repeat(i + 1), (z.from + z.to) / 2, 78);
+  });
+  // 오른쪽 끝 바다
+  ctx.fillStyle = "#3d8fd6"; ctx.fillRect(ww, -200, 600, wh + 400);
+
+  // 안전구역 경계 + 창고
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = 8; ctx.setLineDash([24, 16]);
+  ctx.beginPath(); ctx.moveTo(safeX, 0); ctx.lineTo(safeX, wh); ctx.stroke(); ctx.setLineDash([]);
+  ctx.textAlign = "center"; ctx.font = "110px sans-serif"; ctx.fillText("🏠", safeX / 2, wh / 2 - 10);
+  ctx.fillStyle = "#1d2b53"; ctx.font = "bold 34px sans-serif"; ctx.fillText("안전구역", safeX / 2, wh / 2 + 70);
+  ctx.font = "bold 20px sans-serif"; ctx.fillText("여기로 오면 창고에 보관!", safeX / 2, wh / 2 + 100);
+
+  // 언덕
+  for (const h of W.hills) {
+    const g = ctx.createRadialGradient(h.x, h.y - 20, 10, h.x, h.y, h.r);
+    g.addColorStop(0, "#9ad46a"); g.addColorStop(0.7, "#6aa548"); g.addColorStop(1, "#7a5a3a");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(h.x, h.y, h.r, 0, 7); ctx.fill();
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 4; ctx.setLineDash([8, 8]); ctx.stroke(); ctx.setLineDash([]);
+    ctx.font = "40px sans-serif"; ctx.fillText("⛰️", h.x, h.y + 4);
+    ctx.fillStyle = "#fff"; ctx.font = "bold 16px sans-serif"; ctx.fillText("언덕(안전)", h.x, h.y + 32);
+  }
+
+  // 야생 포켓몬
+  const near = nearestWild();
+  for (const w of state.wild) {
+    if (w.x < camX - 80 || w.x > camX + vw + 80 || w.y < camY - 80 || w.y > camY + vh + 80) continue;
+    const bob = Math.sin(t * 3 + w.x) * 4;
+    ctx.fillStyle = "rgba(0,0,0,.15)"; ctx.beginPath(); ctx.ellipse(w.x, w.y + 30, 26, 8, 0, 0, 7); ctx.fill();
+    const im = pokeImg(w.no);
+    if (im.complete && im.naturalWidth) ctx.drawImage(im, w.x - 36, w.y - 40 + bob, 72, 72);
+    if (Math.hypot(w.x - me.x, w.y - me.y) < 260) {
+      ctx.fillStyle = "#1d2b53"; ctx.font = "bold 14px sans-serif";
+      ctx.fillText(`${w.name} CP${w.power}`, w.x, w.y + 50);
+    }
+    if (w === near && !me.carry) {
+      ctx.strokeStyle = "#ffcb05"; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(w.x, w.y, 46 + Math.sin(t * 8) * 3, 0, 7); ctx.stroke();
+      ctx.fillStyle = "#ffcb05"; ctx.beginPath(); ctx.arc(w.x + 40, w.y - 44, 17, 0, 7); ctx.fill();
+      ctx.fillStyle = "#1d2b53"; ctx.font = "bold 20px sans-serif"; ctx.fillText("E", w.x + 40, w.y - 37);
+    }
+  }
+
+  // 플레이어들
+  for (const p of state.players) {
+    const isMe = p.id === me.id;
+    const pos = isMe ? me : (shown[p.id] || p);
+    drawPlayer(pos.x, pos.y, p, isMe, t);
+  }
+
+  // 쓰나미
+  const wv = state.wave;
+  if (wv.phase === "wave") {
+    const g = ctx.createLinearGradient(wv.x, 0, wv.x + wv.width, 0);
+    g.addColorStop(0, "rgba(255,255,255,.95)"); g.addColorStop(0.08, "rgba(66,165,245,.92)");
+    g.addColorStop(0.6, "rgba(21,101,192,.9)"); g.addColorStop(1, "rgba(21,101,192,0)");
+    ctx.fillStyle = g; ctx.fillRect(wv.x, 0, wv.width, wh);
+    ctx.fillStyle = "#fff";
+    for (let y = 0; y < wh; y += 40) {
+      ctx.beginPath(); ctx.arc(wv.x + Math.sin(t * 6 + y) * 10, y + 20, 18, 0, 7); ctx.fill();
+    }
+  } else if (wv.phase === "warning") {
+    ctx.fillStyle = `rgba(227,53,13,${0.12 + Math.sin(t * 10) * 0.08})`;
+    ctx.fillRect(safeX, 0, ww - safeX, wh);
+  }
+
+  // 화면 효과
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (flash > 0) { ctx.fillStyle = `rgba(30,120,230,${flash * 0.6})`; ctx.fillRect(0, 0, innerWidth, innerHeight); }
+  drawMinimap();
+}
+
+function drawPlayer(x, y, p, isMe, t) {
+  ctx.fillStyle = "rgba(0,0,0,.2)"; ctx.beginPath(); ctx.ellipse(x, y + 24, 22, 7, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = p.color; ctx.strokeStyle = isMe ? "#ffcb05" : "#fff"; ctx.lineWidth = isMe ? 6 : 4;
+  ctx.beginPath(); ctx.arc(x, y, 22, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.font = "24px sans-serif"; ctx.textAlign = "center"; ctx.fillText("🧢", x, y + 8);
+  ctx.font = "bold 16px sans-serif"; ctx.lineWidth = 4; ctx.strokeStyle = "#fff"; ctx.fillStyle = "#1d2b53";
+  const label = (isMe ? "⭐ " : "") + p.name + (p.battle ? " ⚔️" : "");
+  ctx.strokeText(label, x, y - 32); ctx.fillText(label, x, y - 32);
+  if (p.carry) {
+    const im = pokeImg(p.carry);
+    if (im.complete && im.naturalWidth) ctx.drawImage(im, x - 28, y - 100 + Math.sin(t * 6) * 3, 56, 56);
+  }
+}
+
+function drawMinimap() {
+  const mw = Math.min(300, innerWidth - 220), mh = mw * W.world.h / W.world.w;
+  if (mw < 120) return;
+  const mx = (innerWidth - mw) / 2, my = innerHeight - mh - 12, k = mw / W.world.w;
+  ctx.fillStyle = "rgba(255,255,255,.9)"; ctx.fillRect(mx - 3, my - 3, mw + 6, mh + 6);
+  ctx.fillStyle = "#86cf7c"; ctx.fillRect(mx, my, W.world.safeX * k, mh);
+  W.zones.forEach((z, i) => { ctx.fillStyle = ZONE_COLORS[i]; ctx.fillRect(mx + z.from * k, my, (z.to - z.from) * k, mh); });
+  ctx.fillStyle = "#6aa548"; W.hills.forEach(h => { ctx.beginPath(); ctx.arc(mx + h.x * k, my + h.y * k, h.r * k, 0, 7); ctx.fill(); });
+  ctx.fillStyle = "#e3350d"; state.wild.forEach(w => ctx.fillRect(mx + w.x * k - 1, my + w.y * k - 1, 2, 2));
+  const wv = state.wave;
+  if (wv.phase === "wave") { ctx.fillStyle = "rgba(21,101,192,.85)"; ctx.fillRect(mx + Math.max(0, wv.x) * k, my, wv.width * k, mh); }
+  state.players.forEach(p => {
+    ctx.fillStyle = p.id === me.id ? "#ffcb05" : p.color;
+    ctx.strokeStyle = "#1d2b53"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(mx + (p.id === me.id ? me.x : p.x) * k, my + (p.id === me.id ? me.y : p.y) * k, p.id === me.id ? 4 : 3, 0, 7); ctx.fill(); ctx.stroke();
+  });
+}
+
+/* =========================================================
+   5. 위쪽 정보창
+   ========================================================= */
+function zoneName() {
+  if (me.x < W.world.safeX) return "🏠 안전구역";
+  const z = W.zones.find(z => me.x >= z.from && me.x < z.to);
+  return z ? "⚠️ " + z.name : "";
+}
+let lastInfo = "";
+function updateMyInfo() {
+  const html = `🧢 ${esc(me.name)} · ${zoneName()}` + (me.carry ? ` <img src="${imgUrl(me.carry)}">` : "");
+  if (html !== lastInfo) { $("myInfo").innerHTML = html; lastInfo = html; }
+}
+function updateWaveInfo() {
+  const wv = state.wave, el = $("waveInfo");
+  el.className = "card" + (wv.phase === "warning" ? " warn" : wv.phase === "wave" ? " wave" : "");
+  el.textContent = wv.phase === "calm" ? `🌤️ 쓰나미까지 ${Math.ceil(wv.t)}초`
+    : wv.phase === "warning" ? `⚠️ 쓰나미 경고! ${Math.ceil(wv.t)}초 후 도착!`
+    : "🌊 쓰나미가 덮치는 중! 언덕/안전구역으로!";
+}
+
+/* =========================================================
+   6. 창고 / 트레이너 목록 패널
+   ========================================================= */
+let panelMode = null;
+function openPanel(mode) { panelMode = panelMode === mode ? null : mode; $("panel").classList.toggle("open", !!panelMode); renderPanel(); }
+function closePanel() { panelMode = null; $("panel").classList.remove("open"); }
+function pokeCards(list, onPick) {
+  if (!list.length) return `<div class="empty">아직 포켓몬이 없어요.<br>위험 구역에서 포켓몬을 구해와요! 🌊</div>`;
+  return `<div class="poke-grid">` + [...list].sort((a, b) => b.power - a.power).map(p =>
+    `<div class="pcard ${onPick ? "pick" : ""}" ${onPick ? `onclick="${onPick}('${p.id}')"` : ""}>
+       <img src="${imgUrl(p.no)}" loading="lazy"><div>${esc(p.name)}</div><div class="cp">CP ${p.power}</div></div>`).join("") + `</div>`;
+}
+let lastPanel = "";
+function renderPanel() {
+  if (!panelMode) return;
+  let title, html;
+  if (panelMode === "storage") {
+    title = `📦 내 창고 (${myStorage.list.length}마리)`;
+    html = `<p style="font-weight:700;margin-bottom:8px">🏆 ${myStorage.wins}승 ${myStorage.losses}패</p>` + pokeCards(myStorage.list);
+  } else {
+    const others = state.players.filter(p => p.id !== me.id);
+    title = `👥 접속한 트레이너 (${others.length})`;
+    html = `<p style="font-size:.82rem;color:#666;margin-bottom:8px">배틀은 둘 다 🏠안전구역에 있을 때 할 수 있어요. 이기면 상대 포켓몬을 데려와요!</p>` +
+      (others.length ? others.map(p => {
+        const safe = p.x < W.world.safeX;
+        const st = p.battle ? "⚔️ 배틀 중" : safe ? "🏠 안전구역" : "🌊 위험구역";
+        return `<div class="player-row"><span class="dot" style="background:${p.color}"></span>
+          <div class="grow">${esc(p.name)}<div class="st">${st}</div></div>
+          <button class="btn small red" ${p.battle || !safe ? "disabled" : ""} onclick="askChallenge('${p.id}')">⚔️ 배틀</button></div>`;
+      }).join("") : `<div class="empty">지금은 다른 트레이너가 없어요.<br>친구에게 주소를 알려줘요!</div>`);
+  }
+  $("panelTitle").textContent = title;
+  if (html !== lastPanel) { $("panelBody").innerHTML = html; lastPanel = html; }
+}
+
+/* =========================================================
+   7. 팝업
+   ========================================================= */
+let modalOpen = false;
+function showModal(html) { $("modal").innerHTML = html; $("modalBg").classList.add("open"); modalOpen = true; }
+function hideModal() { $("modalBg").classList.remove("open"); modalOpen = false; }
+
+/* ----- 배틀 신청하기 ----- */
+let challengeTarget = null;
+function askChallenge(id) {
+  const p = state.players.find(p => p.id === id);
+  if (!p) return;
+  if (me.x >= W.world.safeX) return toast("나도 안전구역에 있어야 배틀할 수 있어요!");
+  if (!myStorage.list.length) return toast("창고에 포켓몬이 없어요! 먼저 구해와요.");
+  challengeTarget = id;
+  showModal(`<h3>⚔️ ${esc(p.name)}님과 배틀</h3>
+    <p>배틀에 내보낼 포켓몬을 골라요.<br><b style="color:#e3350d">지면 이 포켓몬을 상대에게 빼앗겨요!</b></p>
+    ${pokeCards(myStorage.list, "sendChallenge")}
+    <button class="btn small blue" onclick="hideModal()">취소</button>`);
+}
+function sendChallenge(pokeId) { socket.emit("challenge", { targetId: challengeTarget, pokeId }); hideModal(); }
+
+/* ----- 배틀 신청 받기 ----- */
+let pendingChallenge = null, chTimer = null;
+function onChallenged(d) {
+  if (inBattle) return;
+  pendingChallenge = d.challengeId;
+  let left = 20;
+  showModal(`<h3>⚔️ 배틀 신청이 왔어요!</h3>
+    <p><b>${esc(d.fromName)}</b>님의 <b>${esc(d.poke.name)}</b> (CP ${d.poke.power})</p>
+    <img class="big" src="${imgUrl(d.poke.no)}">
+    <p>수락하려면 내 포켓몬을 골라요.<br><b style="color:#e3350d">이기면 상대 포켓몬을, 지면 내 포켓몬을 빼앗겨요!</b></p>
+    ${myStorage.list.length ? pokeCards(myStorage.list, "acceptChallenge") : "<p>창고에 포켓몬이 없어요.</p>"}
+    <button class="btn small blue" onclick="rejectChallenge()">거절하기 (<span id="chLeft">20</span>)</button>`);
+  clearInterval(chTimer);
+  chTimer = setInterval(() => {
+    left--; if ($("chLeft")) $("chLeft").textContent = left;
+    if (left <= 0) rejectChallenge();
+  }, 1000);
+}
+function acceptChallenge(pokeId) { clearInterval(chTimer); socket.emit("challengeReply", { challengeId: pendingChallenge, accept: true, pokeId }); hideModal(); }
+function rejectChallenge() { clearInterval(chTimer); socket.emit("challengeReply", { challengeId: pendingChallenge, accept: false }); hideModal(); }
+
+/* =========================================================
+   8. 배틀
+   ========================================================= */
+let B = null, bTimerId = null;
+function onBattleStart(d) {
+  clearInterval(chTimer);
+  inBattle = true; closePanel();
+  B = d;
+  showModal(`<h3>⚔️ 포켓몬 배틀!</h3>
+    <div class="battle-field">
+      <div class="fighter foe">
+        <img id="foeImg" src="${imgUrl(d.foe.poke.no)}">
+        <div class="info"><div class="nm">${esc(d.foe.poke.name)} <small>CP ${d.foe.poke.power}</small></div>
+          <div class="owner">${esc(d.foe.name)}님의 포켓몬</div>
+          <div class="hpbar"><div id="foeHp"></div></div><div class="hptext" id="foeHpT"></div></div>
+      </div>
+      <div class="vs">VS</div>
+      <div class="fighter">
+        <img id="youImg" src="${imgUrl(d.you.poke.no)}">
+        <div class="info"><div class="nm">${esc(d.you.poke.name)} <small>CP ${d.you.poke.power}</small></div>
+          <div class="owner">내 포켓몬</div>
+          <div class="hpbar"><div id="youHp"></div></div><div class="hptext" id="youHpT"></div></div>
+      </div>
+    </div>
+    <div id="bLog">기술을 골라요!</div>
+    <div class="moves">
+      <button class="btn" onclick="bMove('tackle')">💥 몸통박치기<small>확실한 공격</small></button>
+      <button class="btn red" onclick="bMove('special')">🔥 필살기<small>2배! 하지만 빗나갈 수도</small></button>
+      <button class="btn blue" onclick="bMove('guard')">🛡️ 방어<small>피해↓ 체력 조금 회복</small></button>
+    </div>
+    <div id="bTimer"></div>`);
+  setHp(d.you.hp, d.foe.hp);
+  startTurnTimer();
+}
+function setHp(youHp, foeHp) {
+  const pct = (h, m) => Math.max(0, h / m * 100);
+  const color = p => p > 50 ? "#4cd964" : p > 20 ? "#ffcc00" : "#e3350d";
+  const yp = pct(youHp, B.you.max), fp = pct(foeHp, B.foe.max);
+  $("youHp").style.width = yp + "%"; $("youHp").style.background = color(yp);
+  $("foeHp").style.width = fp + "%"; $("foeHp").style.background = color(fp);
+  $("youHpT").textContent = `HP ${youHp} / ${B.you.max}`;
+  $("foeHpT").textContent = `HP ${foeHp} / ${B.foe.max}`;
+  B.youHp = youHp; B.foeHp = foeHp;
+}
+function startTurnTimer() {
+  let left = B.turnTime;
+  document.querySelectorAll(".moves .btn").forEach(b => b.disabled = false);
+  $("bTimer").textContent = `⏱️ ${left}초 안에 기술을 골라요`;
+  clearInterval(bTimerId);
+  bTimerId = setInterval(() => {
+    left--;
+    if (left >= 0 && $("bTimer") && !B.chosen) $("bTimer").textContent = `⏱️ ${left}초 안에 기술을 골라요`;
+  }, 1000);
+  B.chosen = false;
+}
+function bMove(m) {
+  if (!B || B.chosen) return;
+  B.chosen = true;
+  socket.emit("battleMove", m);
+  document.querySelectorAll(".moves .btn").forEach(b => b.disabled = true);
+  $("bTimer").textContent = "⏳ 상대가 기술을 고르는 중...";
+}
+function onBattleTurn(d) {
+  if (!B) return;
+  if (d.youHp < B.youHp) { const e = $("youImg"); e.classList.remove("hit-anim"); void e.offsetWidth; e.classList.add("hit-anim"); }
+  if (d.foeHp < B.foeHp) { const e = $("foeImg"); e.classList.remove("hit-anim"); void e.offsetWidth; e.classList.add("hit-anim"); }
+  $("bLog").innerHTML = d.log.map(esc).join("<br>");
+  setHp(d.youHp, d.foeHp);
+  if (d.youHp > 0 && d.foeHp > 0) startTurnTimer();
+  else { clearInterval(bTimerId); document.querySelectorAll(".moves .btn").forEach(b => b.disabled = true); $("bTimer").textContent = "배틀 끝!"; }
+}
+function onBattleEnd(d) {
+  clearInterval(bTimerId);
+  inBattle = false; B = null;
+  showModal(d.win
+    ? `<h3>🎉 승리! 🎉</h3>${d.reason ? `<p>${esc(d.reason)}</p>` : ""}<img class="big" src="${imgUrl(d.poke.no)}">
+       <p><b>${esc(d.poke.name)}</b> (CP ${d.poke.power})을(를) 데려왔어요!</p><p>📦 창고에 보관했어요.</p>
+       <button class="btn" onclick="hideModal()">좋아요!</button>`
+    : `<h3>😢 패배...</h3><img class="big" src="${imgUrl(d.poke.no)}" style="filter:grayscale(1)">
+       <p><b>${esc(d.poke.name)}</b>을(를) 상대에게 빼앗겼어요.</p><p>더 강한 포켓몬을 구해서 다시 도전해요!</p>
+       <button class="btn" onclick="hideModal()">확인</button>`);
+}
+</script>
+</body>
+</html>
